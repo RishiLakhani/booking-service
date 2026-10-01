@@ -20,7 +20,7 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 - [x] 6. Confirm a hold
 - [x] 7. Error handling: clean 4xx for every domain outcome
 - [x] 8. Prometheus metrics and structured logs
-- [ ] 9. Burst script
+- [x] 9. Burst script
 - [ ] 10. Docker image and AWS deployment (EC2 + RDS)
 - [ ] 11. README: run, test and burst instructions
 - [ ] 12. WRITEUP.md
@@ -51,6 +51,48 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 src/main/java/com/app/bookingservice   application code
 src/main/resources                     configuration (application.yaml), migrations
 plan/                                  step-by-step execution plan
+```
+
+## Burst test (one command)
+
+Reproduces the on-sale stampede against any running instance and checks every correctness rule. It runs on [uv](https://docs.astral.sh/uv/), which supplies Python 3.11+ and the script's dependencies on the fly. If `uv` isn't installed, `burst.sh` offers to install it (asking first), or prints the install command.
+
+```bash
+ADMIN_SECRET=<admin-secret> ./burst.sh <BASE_URL>
+# e.g. ADMIN_SECRET=... ./burst.sh http://localhost:8080
+```
+
+Options: `--requests 20000`, `--concurrency 500`, `--hot-seats 10`, `--seats 1000`, `--seed 42`, and `--expiry-check` (also waits out the hold TTL and verifies release). It exits `0` only if every check passes.
+
+**What it fires, all at once, against a fresh show:**
+- a hot-seat storm (800 users per seat)
+- overlapping multi-seat requests in random order
+- idempotent retry storms
+- a per-user limit attack (10 parallel requests per user)
+- identity spoofing in the body
+- 13 kinds of invalid requests
+- normal traffic
+
+It then runs a confirm storm (including concurrent double confirms and confirms of other users' holds).
+
+**What it prints:** the outcome distribution (201 / 200 / 409 by reason / other 4xx / **5xx** / client errors), latency percentiles, the final reconciliation, and a PASS/FAIL line per check:
+- zero 5xx
+- one winner per hot seat
+- no seat owned twice at once
+- no user over 4 active seats
+- idempotency
+- token-derived identity
+- the expected 4xx for each bad request
+- the invariant in every live snapshot and at the end
+- all-or-nothing final state
+- metrics reconcile with responses
+
+Sample result (local, Docker Postgres):
+
+```
+Stampede: 20,000 requests in 15.1s (1,322 req/s); latency p50 371 ms, p95 693 ms, p99 808 ms
+available 305 + held 277 + confirmed 418 = 1,000   total_seats 1,000   OK
+ALL CHECKS PASSED: 22 passed, 0 failed, 0 skipped
 ```
 
 ## Running locally
