@@ -4,17 +4,21 @@
 **Serves:** bar 6; lets the burst script obtain tokens for many users.
 
 ## Tasks
-- HS256 JWT with the secret from env `JWT_SECRET`. Library per the open question below.
-- `POST /auth/token {"user_id": "..."}` → signed JWT.
-- Controllers read identity only from the authenticated principal. Request DTOs have **no** user field, so a spoofed `user_id` in the body is ignored.
-- Secured rules: `/shows` POST → `admin`; reserve/confirm → authenticated; health/prometheus/token → anonymous.
-- Missing/invalid token → 401; wrong role → 403.
+- Spring Security OAuth2 resource server (built-in Nimbus) with HS256, signed with `JWT_SECRET`.
+- `POST /auth/token {"user_id": "...", "role": "user|admin"}` → signed JWT valid for 2 hours.
+  - `role` defaults to `user`.
+  - `admin` requires an `X-Admin-Secret` header matching `ADMIN_SECRET` (constant-time compare).
+- `JWT_SECRET` (≥ 32 chars) and `ADMIN_SECRET` are required env vars with no defaults; startup fails without them. Local development reads a git-ignored `.env` (template: `.env.example`).
+- The `role` claim maps to `ROLE_USER` / `ROLE_ADMIN`.
+- Rules:
+  - `POST /shows` → admin
+  - health, prometheus and `POST /auth/token` → anonymous
+  - everything else → authenticated
+- Controllers read identity only from the authenticated principal. Request DTOs have **no** user field, so a spoofed `user_id` in the body is ignored (verified in step 5).
+- Missing/invalid/expired token → 401; wrong role → 403.
 
 ## Done when
-- No token → 401; tampered token → 401; user token on `POST /shows` → 403.
-- Reserve with body `"user_id":"bob"` and a token for alice → reservation owned by alice.
-
-## Open questions
-- How admin tokens are issued: same endpoint with `role` (open) vs an admin secret header vs an admin token minted offline from `JWT_SECRET`.
-- Token expiry duration.
-- Library: Spring Security OAuth2 resource server (`NimbusJwtDecoder`/`NimbusJwtEncoder` with HS256), which is standard but heavier; or `jjwt` + a small `OncePerRequestFilter`, which is less code. Spring Boot 4 uses Jackson 3, and `jjwt`'s JSON module is built on Jackson 2, so check compatibility before choosing it.
+- No token → 401; tampered token → 401; expired token → 401 (after Spring's default 60s clock-skew allowance).
+- User token on `POST /shows` → 403; admin token passes.
+- Admin token without / with a wrong `X-Admin-Secret` → 403.
+- Startup fails with a clear message when secrets are missing or too short.

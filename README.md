@@ -13,8 +13,8 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 - [x] Project scaffold: Spring Boot 4, Java 21, Gradle
 - [x] Execution plan
 - [x] 1. Postgres (Docker Compose), configuration, liveness/readiness health checks
-- [ ] 2. Database schema (Flyway) and JDBC data access
-- [ ] 3. JWT authentication and token endpoint
+- [x] 2. Database schema (Flyway) and JDBC data access
+- [x] 3. JWT authentication and token endpoint
 - [ ] 4. Create show and show state endpoints
 - [ ] 5. Reserve seats (atomic hold, idempotency, per-user limit)
 - [ ] 6. Confirm a hold
@@ -58,13 +58,32 @@ plan/                                  step-by-step execution plan
 **Prerequisites:** Java 21, Docker (with Docker Compose).
 
 ```bash
+cp .env.example .env              # then set JWT_SECRET (32+ chars) and ADMIN_SECRET
 docker compose up -d postgres     # Postgres 16 on localhost:5432
 ./gradlew bootRun                 # app on http://localhost:8080
 ```
 
+`JWT_SECRET` and `ADMIN_SECRET` are required: the app will not start without them. Locally they are read from `.env` (git-ignored); in deployment they come from environment variables.
+
 Database settings default to the Compose values and can be overridden with `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD`.
 
 Tests need Postgres running: `./gradlew test`.
+
+### Authentication
+
+Every endpoint except health, metrics and token issuance needs a `Bearer` token. The caller's identity is taken from the token only, never from the request body.
+
+```bash
+# User token (valid 2 hours)
+curl -X POST localhost:8080/auth/token -H 'Content-Type: application/json' \
+  -d '{"user_id": "alice"}'
+
+# Admin token (needed to create shows)
+curl -X POST localhost:8080/auth/token -H 'Content-Type: application/json' \
+  -H "X-Admin-Secret: $ADMIN_SECRET" -d '{"user_id": "ops", "role": "admin"}'
+```
+
+The token endpoint stands in for a real login, so anyone can obtain a user token. Admin tokens require the admin secret.
 
 ### Health checks
 
