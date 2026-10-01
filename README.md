@@ -15,7 +15,7 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 - [x] 1. Postgres (Docker Compose), configuration, liveness/readiness health checks
 - [x] 2. Database schema (Flyway) and JDBC data access
 - [x] 3. JWT authentication and token endpoint
-- [ ] 4. Create show and show state endpoints
+- [x] 4. Create show and show state endpoints
 - [ ] 5. Reserve seats (atomic hold, idempotency, per-user limit)
 - [ ] 6. Confirm a hold
 - [ ] 7. Error handling: clean 4xx for every domain outcome
@@ -84,6 +84,20 @@ curl -X POST localhost:8080/auth/token -H 'Content-Type: application/json' \
 ```
 
 The token endpoint stands in for a real login, so anyone can obtain a user token. Admin tokens require the admin secret.
+
+### Shows
+
+```bash
+# Create a show: every seat starts available; price is integer paise
+curl -X POST localhost:8080/shows -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"name": "friday-night", "seats": ["A1", "A2", "A3"], "price_paise": 25000}'
+
+# Show state (any valid token): per-seat status and counts (available + held + confirmed == total_seats)
+curl localhost:8080/shows/<show-id> -H "Authorization: Bearer $TOKEN"
+```
+
+Each user may hold or confirm at most 4 seats per show.
 
 ### Health checks
 

@@ -15,6 +15,9 @@ spring:
       enabled: true
   jackson:
     property-naming-strategy: SNAKE_CASE
+    deserialization:
+      # Money is integer paise: reject 250.5 instead of silently truncating it to 250.
+      accept-float-as-int: false
 
 app:
   auth:
