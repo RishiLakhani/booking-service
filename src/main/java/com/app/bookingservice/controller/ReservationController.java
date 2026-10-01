@@ -40,4 +40,10 @@ public class ReservationController {
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(ReservationResponse.from(result.reservation()));
     }
+
+    /** Only the owner may confirm; repeating a confirm returns 200 with the confirmed reservation. */
+    @PostMapping("/reservations/{reservationId}/confirm")
+    public ReservationResponse confirm(@PathVariable UUID reservationId, @AuthenticationPrincipal Jwt jwt) {
+        return ReservationResponse.from(reservationService.confirm(jwt.getSubject(), reservationId));
+    }
 }

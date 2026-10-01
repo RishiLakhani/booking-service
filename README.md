@@ -17,7 +17,7 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 - [x] 3. JWT authentication and token endpoint
 - [x] 4. Create show and show state endpoints
 - [x] 5. Reserve seats (atomic hold, idempotency, per-user limit)
-- [ ] 6. Confirm a hold
+- [x] 6. Confirm a hold
 - [ ] 7. Error handling: clean 4xx for every domain outcome
 - [ ] 8. Prometheus metrics and structured logs
 - [ ] 9. Burst script
@@ -121,6 +121,22 @@ curl -X POST localhost:8080/shows/<show-id>/reserve -H 'Content-Type: applicatio
 | More than 4 seats for this user and show | `409 per-user-limit` |
 
 Declines return `{"error": "<reason>", "message": "..."}`.
+
+### Confirm a hold
+
+```bash
+curl -X POST localhost:8080/reservations/<reservation-id>/confirm -H "Authorization: Bearer $TOKEN"
+```
+
+| Situation | Response |
+|---|---|
+| Your hold, not expired | `200` with `"status": "confirmed"` |
+| Already confirmed (retry) | `200` with the same reservation |
+| Hold expired | `409 hold-expired` |
+| Someone else's reservation | `403` |
+| Unknown reservation | `404` |
+
+Confirmed seats are permanent: they never expire and can't be taken by anyone else.
 
 ### Health checks
 

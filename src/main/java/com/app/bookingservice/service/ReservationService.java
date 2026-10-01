@@ -96,6 +96,27 @@ public class ReservationService {
         return new ReserveResult(held, true);
     }
 
+    /**
+     * Confirms the caller's own hold. Safe to repeat: confirming an already-confirmed reservation
+     * returns it unchanged. Races with lazy expiry are settled by the guarded update in the repository.
+     */
+    @Transactional
+    public Reservation confirm(String userId, UUID reservationId) {
+        var confirmed = reservations.confirm(reservationId, userId);
+        if (confirmed.isPresent()) {
+            return confirmed.get();
+        }
+        Reservation reservation = reservations.findById(reservationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "reservation not found"));
+        if (!reservation.userId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "reservation belongs to another user");
+        }
+        if (reservation.status() == ReservationStatus.CONFIRMED) {
+            return reservation;
+        }
+        throw new ReservationDeclinedException(DeclineReason.HOLD_EXPIRED, "the hold has expired; reserve again");
+    }
+
     /** created = false means an idempotent replay of an earlier request. */
     public record ReserveResult(Reservation reservation, boolean created) {
     }
