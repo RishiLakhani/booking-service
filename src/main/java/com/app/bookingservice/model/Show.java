@@ -1,0 +1,6 @@
+package com.app.bookingservice.model;
+
+import java.util.UUID;
+
+public record Show(UUID id, String name, long pricePaise, int perUserLimit, int totalSeats) {
+}
