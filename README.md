@@ -12,7 +12,7 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 
 - [x] Project scaffold: Spring Boot 4, Java 21, Gradle
 - [x] Execution plan
-- [ ] 1. Postgres (Docker Compose), configuration, liveness/readiness health checks
+- [x] 1. Postgres (Docker Compose), configuration, liveness/readiness health checks
 - [ ] 2. Database schema (Flyway) and JDBC data access
 - [ ] 3. JWT authentication and token endpoint
 - [ ] 4. Create show and show state endpoints
@@ -55,4 +55,20 @@ plan/                                  step-by-step execution plan
 
 ## Running locally
 
-Setup and run instructions will be added as the service comes together.
+**Prerequisites:** Java 21, Docker (with Docker Compose).
+
+```bash
+docker compose up -d postgres     # Postgres 16 on localhost:5432
+./gradlew bootRun                 # app on http://localhost:8080
+```
+
+Database settings default to the Compose values and can be overridden with `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD`.
+
+Tests need Postgres running: `./gradlew test`.
+
+### Health checks
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /actuator/health/liveness` | Process is up |
+| `GET /actuator/health/readiness` | Ready to serve: checks the database and returns `503` when it is unreachable |
