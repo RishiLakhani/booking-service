@@ -33,11 +33,11 @@ class ConfirmTest extends IntegrationTest {
         UUID showId = createShow();
         Reservation held = reservations.reserve("alice", showId, List.of("A1", "A2"), "k1").reservation();
 
-        Reservation confirmed = reservations.confirm("alice", held.id());
+        Reservation confirmed = reservations.confirm("alice", held.id()).reservation();
         assertThat(confirmed.status()).isEqualTo(ReservationStatus.CONFIRMED);
         assertThat(shows.get(showId).counts().confirmed()).isEqualTo(2);
 
-        Reservation again = reservations.confirm("alice", held.id());
+        Reservation again = reservations.confirm("alice", held.id()).reservation();
         assertThat(again.status()).isEqualTo(ReservationStatus.CONFIRMED);
         assertThat(again.id()).isEqualTo(held.id());
     }
@@ -69,7 +69,7 @@ class ConfirmTest extends IntegrationTest {
             for (int i = 0; i < 10; i++) {
                 futures.add(pool.submit(() -> {
                     start.await();
-                    return reservations.confirm("alice", held.id());
+                    return reservations.confirm("alice", held.id()).reservation();
                 }));
             }
             start.countDown();

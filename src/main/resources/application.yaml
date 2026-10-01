@@ -33,6 +33,11 @@ app:
     # How long a hold lasts before it must be confirmed.
     hold-ttl: ${HOLD_TTL:2m}
 
+logging:
+  structured:
+    format:
+      console: logstash
+
 management:
   endpoints:
     web:

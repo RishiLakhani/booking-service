@@ -8,7 +8,9 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -45,6 +47,27 @@ public class ShowRepository {
 
     public Optional<Show> findById(UUID id) {
         return jdbc.query("SELECT * FROM shows WHERE id = ?", SHOW_MAPPER, id).stream().findFirst();
+    }
+
+    public List<UUID> findAllIds() {
+        return jdbc.queryForList("SELECT id FROM shows", UUID.class);
+    }
+
+    /** Available seats per show in one query, using the same effective-status rules as findSeatStates. */
+    public Map<UUID, Long> countAvailableByShow() {
+        Map<UUID, Long> available = new HashMap<>();
+        jdbc.query("""
+                SELECT s.show_id,
+                       count(*) FILTER (WHERE NOT coalesce(r.status = 'confirmed'
+                                                       OR (r.status = 'held' AND r.expires_at > now()), false)) AS available
+                  FROM seats s
+                  LEFT JOIN reservation_seats rs ON rs.show_id = s.show_id AND rs.seat_no = s.seat_no
+                  LEFT JOIN reservations r ON r.id = rs.reservation_id
+                 GROUP BY s.show_id
+                """, rs -> {
+            available.put(rs.getObject("show_id", UUID.class), rs.getLong("available"));
+        });
+        return available;
     }
 
     /** Number of the given seat numbers that exist in the show. */

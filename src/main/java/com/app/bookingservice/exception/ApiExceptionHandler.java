@@ -1,5 +1,6 @@
 package com.app.bookingservice.exception;
 
+import com.app.bookingservice.observability.ReservationMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -36,9 +37,24 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     /** Postgres lock_timeout (55P03), which Spring leaves uncategorized. (statement_timeout arrives as QueryTimeoutException.) */
     private static final Set<String> TIMEOUT_SQL_STATES = Set.of("55P03");
 
+    private final ReservationMetrics metrics;
+
+    public ApiExceptionHandler(ReservationMetrics metrics) {
+        this.metrics = metrics;
+    }
+
+    /** Counted here, after the transaction has rolled back. */
     @ExceptionHandler(ReservationDeclinedException.class)
     public ResponseEntity<ApiError> declined(ReservationDeclinedException e) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(e.reason().code(), e.getMessage()));
+        String reason = e.reason().code();
+        metrics.declined(reason);
+        log.atInfo()
+                .addKeyValue("outcome", "declined")
+                .addKeyValue("reason", reason)
+                .addKeyValue("user_id", e.userId())
+                .addKeyValue("show_id", e.showId())
+                .log("reservation declined: {}", reason);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(reason, e.getMessage()));
     }
 
     @ExceptionHandler(InvalidRequestException.class)

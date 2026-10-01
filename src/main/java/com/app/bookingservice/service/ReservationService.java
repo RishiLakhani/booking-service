@@ -65,11 +65,11 @@ public class ReservationService {
             Reservation original = existing.get();
             if (!original.seats().equals(sortedSeats)) {
                 throw new ReservationDeclinedException(DeclineReason.IDEMPOTENCY_MISMATCH,
-                        "Idempotency-Key was already used for different seats");
+                        "Idempotency-Key was already used for different seats", userId, showId);
             }
             if (original.status() == ReservationStatus.EXPIRED) {
                 throw new ReservationDeclinedException(DeclineReason.HOLD_EXPIRED,
-                        "the hold for this Idempotency-Key has expired; retry with a new key");
+                        "the hold for this Idempotency-Key has expired; retry with a new key", userId, showId);
             }
             return new ReserveResult(original, false);
         }
@@ -77,7 +77,7 @@ public class ReservationService {
         int activeSeats = reservations.countActiveSeats(userId, showId);
         if (activeSeats + sortedSeats.size() > show.perUserLimit()) {
             throw new ReservationDeclinedException(DeclineReason.PER_USER_LIMIT,
-                    "at most " + show.perUserLimit() + " seats per user for this show");
+                    "at most " + show.perUserLimit() + " seats per user for this show", userId, showId);
         }
 
         // Lazy expiry: free requested seats still owned by expired holds (status transition under row lock).
@@ -94,7 +94,8 @@ public class ReservationService {
             // The atomic decision: uq_seat_taken lets exactly one reservation own each seat.
             reservationSeats.insertAll(held.id(), showId, sortedSeats);
         } catch (DuplicateKeyException e) {
-            throw new ReservationDeclinedException(DeclineReason.SEAT_TAKEN, "one or more seats are already taken");
+            throw new ReservationDeclinedException(DeclineReason.SEAT_TAKEN, "one or more seats are already taken",
+                    userId, showId);
         }
         return new ReserveResult(held, true);
     }
@@ -104,10 +105,10 @@ public class ReservationService {
      * returns it unchanged. Races with lazy expiry are settled by the guarded update in the repository.
      */
     @Transactional
-    public Reservation confirm(String userId, UUID reservationId) {
+    public ConfirmResult confirm(String userId, UUID reservationId) {
         var confirmed = reservations.confirm(reservationId, userId);
         if (confirmed.isPresent()) {
-            return confirmed.get();
+            return new ConfirmResult(confirmed.get(), true);
         }
         Reservation reservation = reservations.findById(reservationId)
                 .orElseThrow(() -> new NotFoundException("reservation not found"));
@@ -115,9 +116,14 @@ public class ReservationService {
             throw new ForbiddenException("reservation belongs to another user");
         }
         if (reservation.status() == ReservationStatus.CONFIRMED) {
-            return reservation;
+            return new ConfirmResult(reservation, false);
         }
-        throw new ReservationDeclinedException(DeclineReason.HOLD_EXPIRED, "the hold has expired; reserve again");
+        throw new ReservationDeclinedException(DeclineReason.HOLD_EXPIRED, "the hold has expired; reserve again",
+                userId, reservation.showId());
+    }
+
+    /** confirmedNow = false means it was already confirmed (a repeat confirm). */
+    public record ConfirmResult(Reservation reservation, boolean confirmedNow) {
     }
 
     /** created = false means an idempotent replay of an earlier request. */

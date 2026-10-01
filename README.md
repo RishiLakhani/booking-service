@@ -19,7 +19,7 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 - [x] 5. Reserve seats (atomic hold, idempotency, per-user limit)
 - [x] 6. Confirm a hold
 - [x] 7. Error handling: clean 4xx for every domain outcome
-- [ ] 8. Prometheus metrics and structured logs
+- [x] 8. Prometheus metrics and structured logs
 - [ ] 9. Burst script
 - [ ] 10. Docker image and AWS deployment (EC2 + RDS)
 - [ ] 11. README: run, test and burst instructions
@@ -155,6 +155,23 @@ Every error has the same shape:
 | 409 | `seat-taken`, `per-user-limit`, `idempotency-mismatch`, `hold-expired` |
 | 500 | `internal-error` |
 | 503 | `service-unavailable` (database busy or unreachable; includes `Retry-After`) |
+
+### Metrics
+
+Prometheus format at `GET /actuator/prometheus` (no token needed):
+
+| Metric | Meaning |
+|---|---|
+| `reservations_held_total` | New holds (each `201`) |
+| `reservations_confirmed_total` | Holds confirmed |
+| `reservations_declined_total{reason}` | `seat-taken`, `per-user-limit`, `idempotent-replay` (each `200` retry), `idempotency-mismatch`, `hold-expired` |
+| `seats_available{show_id}` | Available seats per show, read live from the database |
+
+These reconcile with the API: every reserve response increments exactly one of held / declined, and `seats_available` equals the `available` count from `GET /shows/{id}`.
+
+### Logs
+
+JSON lines (Logstash format) on stdout. Every request gets a `request_id`: send `X-Request-Id` to set your own, otherwise one is generated. It is returned in the `X-Request-Id` response header and attached to every log line for that request. Reserve and confirm outcomes are logged with `event`, `outcome`, `reason`, `user_id`, `show_id` and `seats`.
 
 ### Health checks
 

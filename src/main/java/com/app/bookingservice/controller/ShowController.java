@@ -1,5 +1,6 @@
 package com.app.bookingservice.controller;
 
+import com.app.bookingservice.observability.SeatsAvailableGauges;
 import com.app.bookingservice.service.ShowService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -19,15 +20,19 @@ import java.util.UUID;
 public class ShowController {
 
     private final ShowService showService;
+    private final SeatsAvailableGauges seatsAvailableGauges;
 
-    public ShowController(ShowService showService) {
+    public ShowController(ShowService showService, SeatsAvailableGauges seatsAvailableGauges) {
         this.showService = showService;
+        this.seatsAvailableGauges = seatsAvailableGauges;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ShowResponse create(@Valid @RequestBody CreateShowRequest request) {
-        return ShowResponse.from(showService.create(request.name(), request.seats(), request.pricePaise()));
+        var state = showService.create(request.name(), request.seats(), request.pricePaise());
+        seatsAvailableGauges.register(state.show().id());
+        return ShowResponse.from(state);
     }
 
     @GetMapping("/{id}")
