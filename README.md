@@ -16,7 +16,7 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 - [x] 2. Database schema (Flyway) and JDBC data access
 - [x] 3. JWT authentication and token endpoint
 - [x] 4. Create show and show state endpoints
-- [ ] 5. Reserve seats (atomic hold, idempotency, per-user limit)
+- [x] 5. Reserve seats (atomic hold, idempotency, per-user limit)
 - [ ] 6. Confirm a hold
 - [ ] 7. Error handling: clean 4xx for every domain outcome
 - [ ] 8. Prometheus metrics and structured logs
@@ -67,7 +67,7 @@ docker compose up -d postgres     # Postgres 16 on localhost:5432
 
 Database settings default to the Compose values and can be overridden with `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD`.
 
-Tests need Postgres running: `./gradlew test`.
+Tests start their own throwaway Postgres with Testcontainers (Docker required): `./gradlew test`.
 
 ### Authentication
 
@@ -98,6 +98,29 @@ curl localhost:8080/shows/<show-id> -H "Authorization: Bearer $TOKEN"
 ```
 
 Each user may hold or confirm at most 4 seats per show.
+
+### Reserve seats
+
+```bash
+curl -X POST localhost:8080/shows/<show-id>/reserve -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"seats": ["A12", "A13"]}'
+```
+
+- **All-or-nothing:** either every requested seat is held, or none are.
+- **Hold:** a successful reserve returns `201` with `"status": "held"` and an `expires_at`. The hold lasts `HOLD_TTL` (default 2 minutes) and must be confirmed before it expires. This deliberately differs from a plain `confirmed` response, because holds are time-boxed.
+- **Idempotency:** the `Idempotency-Key` header is required.
+
+| Situation | Response |
+|---|---|
+| New request, seats free | `201` new hold |
+| Same key, same seats (retry) | `200` with the original reservation |
+| Same key, different seats | `409 idempotency-mismatch` |
+| Same key after its hold expired | `409 hold-expired`; retry with a new key |
+| A seat is already held or confirmed | `409 seat-taken` |
+| More than 4 seats for this user and show | `409 per-user-limit` |
+
+Declines return `{"error": "<reason>", "message": "..."}`.
 
 ### Health checks
 

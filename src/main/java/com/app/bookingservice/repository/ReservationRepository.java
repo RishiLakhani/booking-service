@@ -26,6 +26,13 @@ public class ReservationRepository {
             ReservationStatus.fromDb(rs.getString("status")),
             rs.getObject("expires_at", OffsetDateTime.class));
 
+    /** Reads report a held reservation past its expiry as expired, so a stale "held" is never returned. */
+    private static final String SELECT_RESERVATION = """
+            SELECT id, show_id, user_id, idempotency_key, seats, amount_paise, expires_at,
+                   CASE WHEN status = 'held' AND expires_at <= now() THEN 'expired' ELSE status END AS status
+              FROM reservations
+            """;
+
     private final JdbcTemplate jdbc;
 
     public ReservationRepository(JdbcTemplate jdbc) {
@@ -53,11 +60,11 @@ public class ReservationRepository {
     }
 
     public Optional<Reservation> findById(UUID id) {
-        return jdbc.query("SELECT * FROM reservations WHERE id = ?", RESERVATION_MAPPER, id).stream().findFirst();
+        return jdbc.query(SELECT_RESERVATION + " WHERE id = ?", RESERVATION_MAPPER, id).stream().findFirst();
     }
 
     public Optional<Reservation> findByIdempotencyKey(String userId, UUID showId, String idempotencyKey) {
-        return jdbc.query("SELECT * FROM reservations WHERE user_id = ? AND show_id = ? AND idempotency_key = ?",
+        return jdbc.query(SELECT_RESERVATION + " WHERE user_id = ? AND show_id = ? AND idempotency_key = ?",
                 RESERVATION_MAPPER, userId, showId, idempotencyKey).stream().findFirst();
     }
 

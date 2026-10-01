@@ -1,7 +1,6 @@
 package com.app.bookingservice.security;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -23,7 +22,6 @@ import java.util.List;
 import java.util.Locale;
 
 @Configuration
-@EnableConfigurationProperties(AuthProperties.class)
 public class SecurityConfig {
 
     @Bean
