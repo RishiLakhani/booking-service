@@ -1,6 +1,11 @@
+# Profiles:
+#   local: postgres + app      docker compose --profile local up --build
+#   aws:   app + caddy (RDS)   docker compose --profile aws up -d --build
+# Secrets and the database URL come from the environment or a .env file (see .env.example).
 services:
   postgres:
     image: postgres:16-alpine
+    profiles: [local]
     environment:
       POSTGRES_DB: booking
       POSTGRES_USER: booking
@@ -15,5 +20,39 @@ services:
       timeout: 3s
       retries: 10
 
+  app:
+    build: .
+    profiles: [local, aws]
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/booking}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-booking}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-booking}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      ADMIN_SECRET: ${ADMIN_SECRET:?ADMIN_SECRET must be set}
+      HOLD_TTL: ${HOLD_TTL:-2m}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: [aws]
+    restart: unless-stopped
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - app
+
 volumes:
   pgdata:
+  caddy_data:

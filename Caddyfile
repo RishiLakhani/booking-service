@@ -1,0 +1,4 @@
+# Reverse proxy with automatic HTTPS (Let's Encrypt) for PUBLIC_HOST, e.g. 13-233-1-2.sslip.io
+{$PUBLIC_HOST} {
+	reverse_proxy app:8080
+}
