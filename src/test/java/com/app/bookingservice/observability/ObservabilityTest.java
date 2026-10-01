@@ -1,5 +1,6 @@
-package com.app.bookingservice;
+package com.app.bookingservice.observability;
 
+import com.app.bookingservice.IntegrationTest;
 import com.app.bookingservice.model.Role;
 import com.app.bookingservice.security.TokenService;
 import com.app.bookingservice.service.ShowService;
@@ -7,7 +8,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -21,7 +21,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Metrics must reconcile with the responses clients see and with the show state. */
-@AutoConfigureMockMvc
 @AutoConfigureMetrics // tests disable metric exporters by default; this keeps /actuator/prometheus
 class ObservabilityTest extends IntegrationTest {
 

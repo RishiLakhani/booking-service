@@ -1,11 +1,10 @@
-package com.app.bookingservice;
+package com.app.bookingservice.service;
 
+import com.app.bookingservice.IntegrationTest;
 import com.app.bookingservice.exception.DeclineReason;
 import com.app.bookingservice.exception.ReservationDeclinedException;
 import com.app.bookingservice.model.Reservation;
 import com.app.bookingservice.model.SeatStatus;
-import com.app.bookingservice.service.ReservationService;
-import com.app.bookingservice.service.ShowService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;

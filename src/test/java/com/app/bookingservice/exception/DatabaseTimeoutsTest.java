@@ -1,6 +1,6 @@
-package com.app.bookingservice;
+package com.app.bookingservice.exception;
 
-import com.app.bookingservice.exception.ApiExceptionHandler;
+import com.app.bookingservice.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.QueryTimeoutException;
