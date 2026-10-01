@@ -1,13 +1,13 @@
 package com.app.bookingservice.service;
 
+import com.app.bookingservice.exception.InvalidRequestException;
+import com.app.bookingservice.exception.NotFoundException;
 import com.app.bookingservice.model.SeatState;
 import com.app.bookingservice.model.SeatStatus;
 import com.app.bookingservice.model.Show;
 import com.app.bookingservice.repository.ShowRepository;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashSet;
 import java.util.List;
@@ -27,7 +27,7 @@ public class ShowService {
     @Transactional
     public ShowState create(String name, List<String> seatNos, long pricePaise) {
         if (new HashSet<>(seatNos).size() != seatNos.size()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "seats must be unique");
+            throw new InvalidRequestException("seats must be unique");
         }
         Show show = new Show(UUID.randomUUID(), name, pricePaise, PER_USER_LIMIT, seatNos.size());
         shows.insert(show);
@@ -40,7 +40,7 @@ public class ShowService {
     @Transactional(readOnly = true)
     public ShowState get(UUID showId) {
         Show show = shows.findById(showId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "show not found"));
+                .orElseThrow(() -> new NotFoundException("show not found"));
         List<SeatState> seats = shows.findSeatStates(showId);
         return new ShowState(show, seats, Counts.of(seats));
     }

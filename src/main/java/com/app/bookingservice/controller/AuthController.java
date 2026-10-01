@@ -1,15 +1,15 @@
 package com.app.bookingservice.controller;
 
+import com.app.bookingservice.exception.ForbiddenException;
+import com.app.bookingservice.exception.InvalidRequestException;
 import com.app.bookingservice.model.Role;
 import com.app.bookingservice.security.TokenService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Issues tokens for testing and the burst script; stands in for a real login.
@@ -30,7 +30,7 @@ public class AuthController {
                                @RequestHeader(value = "X-Admin-Secret", required = false) String adminSecret) {
         Role role = parseRole(request.role());
         if (role == Role.ADMIN && !tokenService.isValidAdminSecret(adminSecret)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin token requires a valid X-Admin-Secret header");
+            throw new ForbiddenException("Admin token requires a valid X-Admin-Secret header");
         }
         TokenService.IssuedToken issued = tokenService.issue(request.userId(), role);
         return new TokenResponse(issued.token(), request.userId(), role.claimValue(), issued.expiresAt());
@@ -43,7 +43,7 @@ public class AuthController {
         try {
             return Role.fromClaim(role);
         } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "role must be 'user' or 'admin'");
+            throw new InvalidRequestException("role must be 'user' or 'admin'");
         }
     }
 }

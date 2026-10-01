@@ -18,7 +18,7 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 - [x] 4. Create show and show state endpoints
 - [x] 5. Reserve seats (atomic hold, idempotency, per-user limit)
 - [x] 6. Confirm a hold
-- [ ] 7. Error handling: clean 4xx for every domain outcome
+- [x] 7. Error handling: clean 4xx for every domain outcome
 - [ ] 8. Prometheus metrics and structured logs
 - [ ] 9. Burst script
 - [ ] 10. Docker image and AWS deployment (EC2 + RDS)
@@ -137,6 +137,24 @@ curl -X POST localhost:8080/reservations/<reservation-id>/confirm -H "Authorizat
 | Unknown reservation | `404` |
 
 Confirmed seats are permanent: they never expire and can't be taken by anyone else.
+
+### Errors
+
+Every error has the same shape:
+
+```json
+{ "error": "seat-taken", "message": "one or more seats are already taken" }
+```
+
+| Status | `error` codes |
+|---|---|
+| 400 | `invalid-request` |
+| 401 | `unauthorized` (missing, invalid or expired token) |
+| 403 | `forbidden` |
+| 404 | `not-found` |
+| 409 | `seat-taken`, `per-user-limit`, `idempotency-mismatch`, `hold-expired` |
+| 500 | `internal-error` |
+| 503 | `service-unavailable` (database busy or unreachable; includes `Retry-After`) |
 
 ### Health checks
 

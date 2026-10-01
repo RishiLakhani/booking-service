@@ -1,9 +1,9 @@
 package com.app.bookingservice;
 
+import com.app.bookingservice.exception.DeclineReason;
+import com.app.bookingservice.exception.ReservationDeclinedException;
 import com.app.bookingservice.model.Reservation;
 import com.app.bookingservice.model.SeatStatus;
-import com.app.bookingservice.service.DeclineReason;
-import com.app.bookingservice.service.ReservationDeclinedException;
 import com.app.bookingservice.service.ReservationService;
 import com.app.bookingservice.service.ShowService;
 import org.junit.jupiter.api.Test;

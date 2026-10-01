@@ -1,5 +1,6 @@
 package com.app.bookingservice.controller;
 
+import com.app.bookingservice.exception.InvalidRequestException;
 import com.app.bookingservice.service.ReservationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -11,7 +12,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -33,8 +33,7 @@ public class ReservationController {
                                                        @Valid @RequestBody ReserveRequest request,
                                                        @AuthenticationPrincipal Jwt jwt) {
         if (idempotencyKey.isBlank() || idempotencyKey.length() > MAX_IDEMPOTENCY_KEY_LENGTH) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Idempotency-Key must be 1-" + MAX_IDEMPOTENCY_KEY_LENGTH + " characters");
+            throw new InvalidRequestException("Idempotency-Key must be 1-" + MAX_IDEMPOTENCY_KEY_LENGTH + " characters");
         }
         var result = reservationService.reserve(jwt.getSubject(), showId, request.seats(), idempotencyKey);
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)

@@ -1,4 +1,4 @@
-package com.app.bookingservice.service;
+package com.app.bookingservice.exception;
 
 public class ReservationDeclinedException extends RuntimeException {
 

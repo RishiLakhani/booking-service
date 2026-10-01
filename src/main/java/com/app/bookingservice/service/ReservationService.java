@@ -1,6 +1,11 @@
 package com.app.bookingservice.service;
 
 import com.app.bookingservice.config.ReservationProperties;
+import com.app.bookingservice.exception.DeclineReason;
+import com.app.bookingservice.exception.ForbiddenException;
+import com.app.bookingservice.exception.InvalidRequestException;
+import com.app.bookingservice.exception.NotFoundException;
+import com.app.bookingservice.exception.ReservationDeclinedException;
 import com.app.bookingservice.model.Reservation;
 import com.app.bookingservice.model.ReservationStatus;
 import com.app.bookingservice.model.Show;
@@ -9,10 +14,8 @@ import com.app.bookingservice.repository.ReservationSeatRepository;
 import com.app.bookingservice.repository.ShowRepository;
 import com.app.bookingservice.repository.UserShowRepository;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashSet;
 import java.util.List;
@@ -44,14 +47,14 @@ public class ReservationService {
     @Transactional
     public ReserveResult reserve(String userId, UUID showId, List<String> seatNos, String idempotencyKey) {
         if (new HashSet<>(seatNos).size() != seatNos.size()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "seats must be unique");
+            throw new InvalidRequestException("seats must be unique");
         }
         List<String> sortedSeats = seatNos.stream().sorted().toList();
 
         Show show = shows.findById(showId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "show not found"));
+                .orElseThrow(() -> new NotFoundException("show not found"));
         if (shows.countExistingSeats(showId, sortedSeats) != sortedSeats.size()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown seat in request");
+            throw new InvalidRequestException("unknown seat in request");
         }
 
         // Serializes this user's requests for this show: makes the limit check and idempotency check safe.
@@ -107,9 +110,9 @@ public class ReservationService {
             return confirmed.get();
         }
         Reservation reservation = reservations.findById(reservationId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "reservation not found"));
+                .orElseThrow(() -> new NotFoundException("reservation not found"));
         if (!reservation.userId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "reservation belongs to another user");
+            throw new ForbiddenException("reservation belongs to another user");
         }
         if (reservation.status() == ReservationStatus.CONFIRMED) {
             return reservation;

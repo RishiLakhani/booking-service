@@ -49,7 +49,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/auth/token").permitAll()
                         .requestMatchers(HttpMethod.POST, "/shows").hasRole("ADMIN")
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(roleClaimConverter())));
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint(JsonSecurityErrorHandlers.authenticationEntryPoint())
+                        .accessDeniedHandler(JsonSecurityErrorHandlers.accessDeniedHandler()))
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(roleClaimConverter()))
+                        .authenticationEntryPoint(JsonSecurityErrorHandlers.authenticationEntryPoint())
+                        .accessDeniedHandler(JsonSecurityErrorHandlers.accessDeniedHandler()));
         return http.build();
     }
 

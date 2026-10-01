@@ -1,4 +1,4 @@
-package com.app.bookingservice.service;
+package com.app.bookingservice.exception;
 
 /** Domain outcomes where a reservation is cleanly refused (409), each with a stable reason code. */
 public enum DeclineReason {

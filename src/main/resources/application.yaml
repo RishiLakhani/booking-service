@@ -10,6 +10,10 @@ spring:
     url: jdbc:postgresql://localhost:5432/booking
     username: booking
     password: booking
+    hikari:
+      # Bound every query and lock wait so a stuck statement can't hold a pooled connection
+      # indefinitely. Exceeding either returns 503 service-unavailable.
+      connection-init-sql: SET statement_timeout = '10s'; SET lock_timeout = '5s'
   threads:
     virtual:
       enabled: true

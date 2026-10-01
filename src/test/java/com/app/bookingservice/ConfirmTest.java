@@ -1,5 +1,7 @@
 package com.app.bookingservice;
 
+import com.app.bookingservice.exception.ForbiddenException;
+import com.app.bookingservice.exception.NotFoundException;
 import com.app.bookingservice.model.Reservation;
 import com.app.bookingservice.model.ReservationStatus;
 import com.app.bookingservice.model.SeatStatus;
@@ -7,8 +9,6 @@ import com.app.bookingservice.service.ReservationService;
 import com.app.bookingservice.service.ShowService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,16 +48,14 @@ class ConfirmTest extends IntegrationTest {
         Reservation held = reservations.reserve("alice", showId, List.of("A1"), "k1").reservation();
 
         assertThatThrownBy(() -> reservations.confirm("bob", held.id()))
-                .isInstanceOfSatisfying(ResponseStatusException.class,
-                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+                .isInstanceOf(ForbiddenException.class);
         assertThat(shows.get(showId).counts().held()).isEqualTo(1);
     }
 
     @Test
     void unknownReservationIsNotFound() {
         assertThatThrownBy(() -> reservations.confirm("alice", UUID.randomUUID()))
-                .isInstanceOfSatisfying(ResponseStatusException.class,
-                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+                .isInstanceOf(NotFoundException.class);
     }
 
     @Test
