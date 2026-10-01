@@ -42,6 +42,20 @@ class ConfirmTest extends IntegrationTest {
     }
 
     @Test
+    void amountIsPriceTimesSeats_andStaysTheSameOnReplayAndConfirm() {
+        UUID showId = createShow(); // 25000 paise per seat
+        Reservation pair = reservations.reserve("alice", showId, List.of("A1", "A2"), "k1").reservation();
+        assertThat(pair.amountPaise()).isEqualTo(50_000);
+
+        assertThat(reservations.reserve("alice", showId, List.of("A2", "A1"), "k1").reservation().amountPaise())
+                .as("replay returns the stored amount").isEqualTo(50_000);
+        assertThat(reservations.confirm("alice", pair.id()).reservation().amountPaise()).isEqualTo(50_000);
+
+        Reservation single = reservations.reserve("bob", showId, List.of("A3"), "k2").reservation();
+        assertThat(single.amountPaise()).isEqualTo(25_000);
+    }
+
+    @Test
     void nonOwnerIsForbidden_andHoldIsUnchanged() {
         UUID showId = createShow();
         Reservation held = reservations.reserve("alice", showId, List.of("A1"), "k1").reservation();
