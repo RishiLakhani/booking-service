@@ -56,7 +56,7 @@ The above video shows the live CloudWatch logs while the burst runs against this
 - **Create a show:** an admin creates a show with a list of seats and a price (integer paise; fractional values are rejected).
 - **Reserve seats:** an authenticated user places a **time-limited hold** on one or more seats.
   - **All-or-nothing:** either every requested seat is held, or none are.
-  - **Idempotent:** the `Idempotency-Key` header makes retries safe; a retry returns the original reservation.
+  - **Idempotent:** an idempotency key (the `Idempotency-Key` header, or `idempotency_key` in the body) makes retries safe; a retry returns the original reservation.
   - **Per-user limit:** at most 4 active seats (held or confirmed) per user per show.
 - **Confirm:** the owner confirms a hold before it expires (`HOLD_TTL`, default 2 minutes). Unconfirmed holds expire and their seats become available again. Confirmed seats never expire.
 - **Show state:** per-seat status (`available` / `held` / `confirmed`) and counts, where `available + held + confirmed == total_seats` at all times.
@@ -73,7 +73,7 @@ Every decision is made **inside PostgreSQL in a single transaction**, never by "
 | **No double-sell** | `reservation_seats` has `UNIQUE (show_id, seat_no)` (`uq_seat_taken`). Concurrent claims on a seat race on that index: exactly one commits, the rest get a unique violation, which becomes `409 seat-taken`. |
 | **No deadlocks on multi-seat requests** | Seats are always claimed in sorted order, and locks are always taken in the same order (user row → expired holds by id → seats). Two requests for `[A1,A2]` and `[A2,A1]` can't wait on each other. |
 | **Per-user limit under concurrency** | Each reserve first locks a `(user, show)` row (`SELECT … FOR UPDATE`), so one user's parallel requests run one at a time while the active seats are counted. |
-| **Idempotency** | Keys are stored with `UNIQUE (user_id, show_id, idempotency_key)`; the same per-user lock serializes retries of one key. Same seats → replay (`200`); different seats → `409 idempotency-mismatch`. |
+| **Idempotency** | Keys (header or body) are stored with `UNIQUE (user_id, show_id, idempotency_key)`; the same per-user lock serializes retries of one key. Same seats → replay (`200`); different seats → `409 idempotency-mismatch`. |
 | **Expiry never frees a confirmed seat** | Expiry is lazy: a reserve that needs a seat moves an expired hold `held → expired` under its row lock and only then releases its seats. Confirm is a guarded `UPDATE … WHERE status='held' AND expires_at > now()`. Both touch the same row, so exactly one wins. |
 | **Identity** | The user comes only from the JWT `sub`; request bodies have no user field. |
 
@@ -142,6 +142,8 @@ curl -X POST localhost:8080/shows/<show-id>/reserve -H 'Content-Type: applicatio
   -d '{"seats": ["A12", "A13"]}'
 ```
 
+The idempotency key can go in the `Idempotency-Key` header (as above) or in the body as `{"seats": [...], "idempotency_key": "..."}`. If both are sent they must match.
+
 Success is `201` with `reservation_id`, `show_id`, `user_id`, `seats`, `amount_paise` (price × seats), `"status": "held"` and `expires_at`.
 
 | Situation | Response |
@@ -152,7 +154,7 @@ Success is `201` with `reservation_id`, `show_id`, `user_id`, `seats`, `amount_p
 | Same key after its hold expired | `409 hold-expired`; retry with a new key |
 | A seat is already held or confirmed | `409 seat-taken` |
 | More than 4 active seats for this user and show | `409 per-user-limit` |
-| Unknown seat, duplicate seats, missing key | `400 invalid-request` |
+| Unknown seat, duplicate seats, missing key, header and body keys differ | `400 invalid-request` |
 
 ### Confirm a hold
 

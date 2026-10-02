@@ -57,10 +57,12 @@ class ApiExceptionHandlerTest extends IntegrationTest {
         expectError(reserve("k1", "{\"seats\":[\"A1\",\"A1\"]}"), 400, "invalid-request", "seats must be unique");
         expectError(reserve("k1", "{\"seats\":[\"Z9\"]}"), 400, "invalid-request", "unknown seat in request");
         expectError(reserve("x".repeat(256), "{\"seats\":[\"A1\"]}"), 400, "invalid-request",
-                "Idempotency-Key must be 1-255 characters");
+                "idempotency key must be 1-255 characters");
         expectError(post("/shows/" + showId + "/reserve").header("Authorization", user)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"seats\":[\"A1\"]}"),
-                400, "invalid-request", "missing required header: Idempotency-Key");
+                400, "invalid-request", "an idempotency key is required (Idempotency-Key header or idempotency_key field)");
+        expectError(reserve("k-header", "{\"seats\":[\"A1\"],\"idempotency_key\":\"k-body\"}"), 400, "invalid-request",
+                "Idempotency-Key header and idempotency_key body field differ");
         expectError(get("/shows/not-a-uuid").header("Authorization", user), 400, "invalid-request", "invalid value for 'id'");
         expectError(post("/shows").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"x\",\"seats\":[\"A1\"],\"price_paise\":1.5}"),

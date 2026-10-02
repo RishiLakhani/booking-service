@@ -26,7 +26,7 @@ With a global order, waits can't form a cycle. A dedicated test fires 40 concurr
 
 ## 2. Idempotency
 
-- **Where the key lives:** the client sends an `Idempotency-Key` header (required). The key is stored on the reservation row, scoped to the token's user and the show: `UNIQUE (user_id, show_id, idempotency_key)`. Scoping by user means one client can't collide with, or probe, another's keys.
+- **Where the key lives:** the client sends it as the `Idempotency-Key` header or the `idempotency_key` body field (both accepted; if both are present they must match). The key is stored on the reservation row, scoped to the token's user and the show: `UNIQUE (user_id, show_id, idempotency_key)`. Scoping by user means one client can't collide with, or probe, another's keys.
 - **Exactly once:** the lookup by key happens *after* taking the per-user lock, so concurrent retries of the same key are serialized. The first creates the reservation; the rest find it and get a **`200` replay** of the original body. The unique constraint is the backstop.
   - Replays deliberately return `200`, not `201`, so "exactly one `201` per seat" stays true even when the winner retries. They're counted as `reservations_declined_total{reason="idempotent-replay"}`.
 - **Same key, different body:** the stored seat list (a sorted `text[]`) is compared with the request's sorted seats. A difference returns `409 idempotency-mismatch`, checked before anything else.

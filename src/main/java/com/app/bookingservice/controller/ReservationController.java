@@ -35,12 +35,10 @@ public class ReservationController {
     /** 201 for a new hold, 200 for an idempotent replay of the same request. */
     @PostMapping("/shows/{showId}/reserve")
     public ResponseEntity<ReservationResponse> reserve(@PathVariable UUID showId,
-                                                       @RequestHeader("Idempotency-Key") String idempotencyKey,
+                                                       @RequestHeader(value = "Idempotency-Key", required = false) String headerKey,
                                                        @Valid @RequestBody ReserveRequest request,
                                                        @AuthenticationPrincipal Jwt jwt) {
-        if (idempotencyKey.isBlank() || idempotencyKey.length() > MAX_IDEMPOTENCY_KEY_LENGTH) {
-            throw new InvalidRequestException("Idempotency-Key must be 1-" + MAX_IDEMPOTENCY_KEY_LENGTH + " characters");
-        }
+        String idempotencyKey = resolveIdempotencyKey(headerKey, request.idempotencyKey());
         var result = reservationService.reserve(jwt.getSubject(), showId, request.seats(), idempotencyKey);
         var reservation = result.reservation();
         if (result.created()) {
@@ -58,6 +56,24 @@ public class ReservationController {
                 .log("reservation {}", result.created() ? "held" : "replayed");
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(ReservationResponse.from(reservation));
+    }
+
+    /**
+     * The key may be sent as the Idempotency-Key header or the idempotency_key body field (the brief allows
+     * either). If both are present they must match.
+     */
+    private static String resolveIdempotencyKey(String headerKey, String bodyKey) {
+        if (headerKey != null && bodyKey != null && !headerKey.equals(bodyKey)) {
+            throw new InvalidRequestException("Idempotency-Key header and idempotency_key body field differ");
+        }
+        String key = headerKey != null ? headerKey : bodyKey;
+        if (key == null || key.isBlank()) {
+            throw new InvalidRequestException("an idempotency key is required (Idempotency-Key header or idempotency_key field)");
+        }
+        if (key.length() > MAX_IDEMPOTENCY_KEY_LENGTH) {
+            throw new InvalidRequestException("idempotency key must be 1-" + MAX_IDEMPOTENCY_KEY_LENGTH + " characters");
+        }
+        return key;
     }
 
     /** Only the owner may confirm; repeating a confirm returns 200 with the confirmed reservation. */
