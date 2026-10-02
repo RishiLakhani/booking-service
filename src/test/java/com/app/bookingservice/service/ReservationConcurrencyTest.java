@@ -99,6 +99,28 @@ class ReservationConcurrencyTest extends IntegrationTest {
         assertInvariant(showId);
     }
 
+    /**
+     * Two-seat requests for the same pair in opposite orders ([A1,A2] vs [A2,A1]) are the classic
+     * deadlock. Seats are claimed in sorted order, so every round must end with exactly one winner
+     * and only clean declines, never a deadlock error.
+     */
+    @Test
+    void oppositeOrderPairs_neverDeadlock() throws Exception {
+        int rounds = 10;
+        UUID showId = createShow(rounds * 2);
+        for (int round = 0; round < rounds; round++) {
+            String a = "A" + (round * 2 + 1);
+            String b = "A" + (round * 2 + 2);
+            int r = round;
+            List<Outcome> outcomes = runConcurrently(40, i -> () -> reservations.reserve(
+                    "pair-" + r + "-" + i, showId, i % 2 == 0 ? List.of(a, b) : List.of(b, a), "key-" + i));
+            assertThat(count(outcomes, "created")).as("round %d winners", round).isEqualTo(1);
+            assertThat(count(outcomes, DeclineReason.SEAT_TAKEN.code())).as("round %d declines", round).isEqualTo(39);
+        }
+        assertThat(shows.get(showId).counts().held()).isEqualTo(rounds * 2);
+        assertInvariant(showId);
+    }
+
     // --- helpers ---
 
     private UUID createShow(int seats) {

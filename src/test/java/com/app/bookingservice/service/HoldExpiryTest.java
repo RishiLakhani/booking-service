@@ -48,8 +48,32 @@ class HoldExpiryTest extends IntegrationTest {
         assertThat(shows.get(showId).seats().getFirst().status()).isEqualTo(SeatStatus.CONFIRMED);
     }
 
+    @Test
+    void expiredHoldReadsAsAvailableBeforeAnyCleanup() throws Exception {
+        UUID showId = createShow();
+        reservations.reserve("alice", showId, List.of("A1"), "k1");
+        assertThat(shows.get(showId).counts().held()).isEqualTo(1);
+
+        waitForExpiry(); // no reserve afterwards, so lazy cleanup never runs
+
+        var state = shows.get(showId);
+        assertThat(state.counts().held()).isZero();
+        assertThat(state.counts().available()).isEqualTo(state.show().totalSeats());
+        assertThat(state.seats().getFirst().status()).isEqualTo(SeatStatus.AVAILABLE);
+    }
+
+    @Test
+    void expiredHoldsDoNotCountTowardTheLimit() throws Exception {
+        UUID showId = createShow();
+        reservations.reserve("alice", showId, List.of("A1", "A2", "A3", "A4"), "k1");
+
+        waitForExpiry();
+
+        assertThat(reservations.reserve("alice", showId, List.of("A5", "A6", "A7", "A8"), "k2").created()).isTrue();
+    }
+
     private UUID createShow() {
-        return shows.create("expiry-test", List.of("A1", "A2"), 25000).show().id();
+        return shows.create("expiry-test", List.of("A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8"), 25000).show().id();
     }
 
     private static void waitForExpiry() throws InterruptedException {
