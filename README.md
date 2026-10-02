@@ -6,6 +6,41 @@ A hall of numbered seats opens at once, and thousands of buyers try to book at t
 
 > **Status:** work in progress. The step-by-step build plan is in [`plan/`](plan/).
 
+## Live deployment
+
+**Base URL: https://43-204-225-126.sslip.io**
+
+| What | Where |
+|---|---|
+| Liveness | https://43-204-225-126.sslip.io/actuator/health/liveness |
+| Readiness (checks the database; `503` when it's unreachable) | https://43-204-225-126.sslip.io/actuator/health/readiness |
+| Prometheus metrics | https://43-204-225-126.sslip.io/actuator/prometheus |
+| Logs | AWS CloudWatch Logs, group `/booking-service` (one stream per container); a recording of the live tail under load accompanies the submission |
+
+Run the burst against it (the admin secret is shared with the submission, not committed):
+
+```bash
+ADMIN_SECRET=<admin-secret> ./burst.sh https://43-204-225-126.sslip.io
+```
+
+**How it's deployed (AWS `ap-south-1`):**
+
+```
+client ──HTTPS──▶ EC2 t4g.small (Elastic IP)
+                   ├─ caddy  :80/:443  automatic Let's Encrypt cert, proxies to app
+                   └─ app    :8080     (not exposed; Spring Boot, Java 21)
+                         │ JDBC + SSL, pool of 30
+                         ▼
+                  RDS PostgreSQL 16 db.t4g.micro (private; accepts only the app's security group)
+```
+
+- **Same build as local:** the instance runs the same `docker-compose.yml`, with the `aws` profile (`app` + `caddy`) instead of `local` (`postgres` + `app`).
+- **Secrets:** stored in SSM Parameter Store (encrypted) and written to a root-only `.env` on the instance at deploy time.
+- **Access:** only ports 80 and 443 are open; administration is through SSM Session Manager (no SSH).
+- **Resilience:** containers restart automatically, so the service comes back after an instance reboot.
+
+Measured from a laptop in India against this deployment: 20,000-request burst, all 22 checks pass, 0 5xx; ~520 req/s once the JVM is warm.
+
 ## Progress
 
 Each step is ticked in the commit that completes it. Details per step are in [`plan/`](plan/).
@@ -21,7 +56,7 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 - [x] 7. Error handling: clean 4xx for every domain outcome
 - [x] 8. Prometheus metrics and structured logs
 - [x] 9. Burst script
-- [ ] 10. Docker image and AWS deployment (EC2 + RDS)
+- [x] 10. Docker image and AWS deployment (EC2 + RDS)
 - [ ] 11. README: run, test and burst instructions
 - [ ] 12. WRITEUP.md
 
@@ -49,7 +84,11 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 
 ```
 src/main/java/com/app/bookingservice   application code
-src/main/resources                     configuration (application.yaml), migrations
+src/main/resources                     configuration (application.yaml), Flyway migrations
+src/test/java/com/app/bookingservice   tests (Testcontainers Postgres)
+Dockerfile, docker-compose.yml         container build; compose profiles "local" and "aws"
+Caddyfile                              HTTPS reverse proxy (aws profile)
+burst.sh, burst/                       one-command burst test
 plan/                                  step-by-step execution plan
 ```
 
@@ -97,10 +136,21 @@ ALL CHECKS PASSED: 22 passed, 0 failed, 0 skipped
 
 ## Running locally
 
-**Prerequisites:** Java 21, Docker (with Docker Compose).
+**Prerequisites:** Docker (with Docker Compose). For running outside Docker: Java 21.
 
 ```bash
 cp .env.example .env              # then set JWT_SECRET (32+ chars) and ADMIN_SECRET
+```
+
+**Everything in Docker** (the same way it runs in production):
+
+```bash
+docker compose --profile local up --build    # Postgres 16 + app on http://localhost:8080
+```
+
+**Or the app from source,** with only Postgres in Docker:
+
+```bash
 docker compose up -d postgres     # Postgres 16 on localhost:5432
 ./gradlew bootRun                 # app on http://localhost:8080
 ```
