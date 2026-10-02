@@ -43,7 +43,9 @@ Measured from a laptop in India against this deployment: 20,000-request burst, a
 
 ### Logs under load (recording)
 
-[`docs/live-logs-under-load.mp4`](docs/live-logs-under-load.mp4) (~6.5 MB) shows the live CloudWatch logs while the burst runs against this deployment:
+https://github.com/user-attachments/assets/7613d97b-24c1-47f8-a5b7-46ff9d708928
+
+The above video shows the live CloudWatch logs while the burst runs against this deployment:
 
 1. **Winners:** a live log tail filtered to successful holds on the 10 hot seats. Exactly one winning request per seat appears, out of ~8,000 concurrent attempts.
 2. **Reconciliation:** a CloudWatch Logs Insights count of every outcome logged for the burst's show (held, `seat-taken`, `per-user-limit`, `idempotency-mismatch`, replays). It matches the burst script's report and the Prometheus counters.
