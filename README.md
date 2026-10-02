@@ -15,7 +15,7 @@ A hall of numbered seats opens at once, and thousands of buyers try to book at t
 | Liveness | https://43-204-225-126.sslip.io/actuator/health/liveness |
 | Readiness (checks the database; `503` when it's unreachable) | https://43-204-225-126.sslip.io/actuator/health/readiness |
 | Prometheus metrics | https://43-204-225-126.sslip.io/actuator/prometheus |
-| Logs | AWS CloudWatch Logs, group `/booking-service` (one stream per container); a recording of the live tail under load accompanies the submission |
+| Logs | AWS CloudWatch Logs, group `/booking-service` (one stream per container); see the recording below |
 
 Run the burst against it (the admin secret is shared with the submission, not committed):
 
@@ -40,6 +40,14 @@ client ──HTTPS──▶ EC2 t4g.small (Elastic IP)
 - **Resilience:** containers restart automatically, so the service comes back after an instance reboot.
 
 Measured from a laptop in India against this deployment: 20,000-request burst, all 22 checks pass, 0 5xx; ~520 req/s once the JVM is warm.
+
+### Logs under load (recording)
+
+[`docs/live-logs-under-load.mp4`](docs/live-logs-under-load.mp4) (~6.5 MB) shows the live CloudWatch logs while the burst runs against this deployment:
+
+1. **Winners:** a live log tail filtered to successful holds on the 10 hot seats. Exactly one winning request per seat appears, out of ~8,000 concurrent attempts.
+2. **Reconciliation:** a CloudWatch Logs Insights count of every outcome logged for the burst's show (held, `seat-taken`, `per-user-limit`, `idempotency-mismatch`, replays). It matches the burst script's report and the Prometheus counters.
+3. **Correlation:** a reserve and a confirm sent with custom `X-Request-Id`s, then found in CloudWatch by those IDs.
 
 ## Progress
 
