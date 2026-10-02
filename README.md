@@ -4,7 +4,7 @@ A JSON HTTP API that acts as the **system of record for seat reservations** when
 
 A hall of numbered seats opens at once, and thousands of buyers try to book at the same moment, often fighting over the same few seats. The service decides atomically who gets each seat: exactly one buyer wins a contested seat, and everyone else gets a clean "already taken" response, never a server error or a duplicate booking.
 
-**Live:** https://43-204-225-126.sslip.io · **One-command burst:** `./burst.sh <BASE_URL>` · **Plan:** [`plan/`](plan/)
+**Live:** https://43-204-225-126.sslip.io · **One-command burst:** `./burst.sh <BASE_URL>` · **Design write-up:** [`WRITEUP.md`](WRITEUP.md) · **Plan:** [`plan/`](plan/)
 
 ## Live deployment
 
@@ -313,4 +313,4 @@ Each step is ticked in the commit that completes it. Details per step are in [`p
 - [x] 9. Burst script
 - [x] 10. Docker image and AWS deployment (EC2 + RDS)
 - [x] 11. README: run, test and burst instructions
-- [ ] 12. WRITEUP.md
+- [x] 12. WRITEUP.md

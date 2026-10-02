@@ -1,19 +1,19 @@
 # Step 12 — WRITEUP.md
 
-**Goal:** the short write-up required by Deliverable 5.
+**Goal:** the short write-up required by Deliverable 5 (about 2–3 pages).
 **Serves:** Deliverable 5.
 
-## Sections → source material
-| Section | Source |
-|---|---|
-| Atomic decision (exact mechanism, why race-free, multi-seat deadlock) | `uq_seat_taken`; fixed lock order `user_show` → expired reservations by id → sorted seat inserts |
-| Idempotency (where stored, exactly-once, same-key-different-body) | `reservations` + `uq_reservation_idem`; `user_show` lock serializes; `seats_sorted` comparison → 409 |
-| Holds & expiry | reserve → held (TTL, lazy expiry) → confirm; confirm-vs-expiry race resolved by guarded status transition under the row lock |
-| Consistency vs availability under partition | single Postgres = CP; readiness fails closed (503) when the DB is unreachable; no writes accepted without the DB |
-| Observability: what pages at 2am | any 5xx, readiness failing, invariant drift (gauge vs counts), pool saturation / p99 latency |
-| AI usage (directed vs decided) | decision log: AI proposed options + pros/cons; the developer decided; cite specific decisions and the confirm-vs-expiry race fix |
-| What's next | notes collected during execution (e.g. sweeper, best-effort mode, rate limiting) |
+## Sections
+1. **Atomic decision:** `uq_seat_taken` unique index; all-or-nothing transaction; sorted seat claims and a fixed lock order against deadlocks; the per-user row lock for the limit.
+2. **Idempotency:** `Idempotency-Key` header stored under `UNIQUE (user, show, key)`; serialized by the per-user lock; `200` replay; `409 idempotency-mismatch`; an expired key returns `409 hold-expired`.
+3. **Holds and expiry:** time-boxed holds, lazy expiry, the confirm-vs-expiry race and its guarded-transition fix, the database clock.
+4. **Consistency vs availability:** a single primary (consistency first); `503` + readiness when the DB is unreachable; client retries via idempotency keys.
+5. **What pages at 2am:** sustained 5xx, readiness/503 spikes, pool saturation, a stalled on-sale; tickets vs never-page.
+6. **AI usage:** directed vs decided, with specific examples and the mistakes that were caught.
+7. **What's next.**
 
-## Tasks
-- Keep a running "notes for WRITEUP" list while executing steps 1–10.
-- Write it last, from real burst results.
+## Sources
+The decision log, the design notes, burst results (local and live), the planted-bug check, and the live performance analysis.
+
+## Done when
+The write-up is linked from the README and reviewed by the user. ✅
